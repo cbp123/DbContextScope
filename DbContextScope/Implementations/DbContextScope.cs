@@ -42,13 +42,25 @@ namespace Mehdime.Entity
 
 		public IDbContextCollection DbContexts => _dbContexts;
 
-		public DbContextScope(IDbContextFactory dbContextFactory = null) : this(DbContextScopeOption.JoinExisting, false, null, dbContextFactory)
+	    public DbContextScope() : this(null)
+	    {
+	    }
+
+	    public DbContextScope(IDbContextFactory dbContextFactory) : this(DbContextScopeOption.JoinExisting, false, null, dbContextFactory)
 		{}
 
-		public DbContextScope(bool readOnly, IDbContextFactory dbContextFactory = null) : this(DbContextScopeOption.JoinExisting, readOnly, null, dbContextFactory)
+	    public DbContextScope(bool readOnly) : this(readOnly, null)
+	    {
+	    }
+
+	    public DbContextScope(bool readOnly, IDbContextFactory dbContextFactory) : this(DbContextScopeOption.JoinExisting, readOnly, null, dbContextFactory)
 		{}
 
-		public DbContextScope(DbContextScopeOption joiningOption, bool readOnly, IsolationLevel? isolationLevel, IDbContextFactory dbContextFactory = null)
+	    public DbContextScope(DbContextScopeOption joiningOption, bool readOnly, IsolationLevel? isolationLevel) : this(joiningOption, readOnly, isolationLevel, null)
+	    {
+	    }
+
+	    public DbContextScope(DbContextScopeOption joiningOption, bool readOnly, IsolationLevel? isolationLevel, IDbContextFactory dbContextFactory)
 		{
 			if (isolationLevel.HasValue && joiningOption == DbContextScopeOption.JoinExisting)
 				throw new ArgumentException("Cannot join an ambient DbContextScope when an explicit database transaction is required. When requiring explicit database transactions to be used (i.e. when the 'isolationLevel' parameter is set), you must not also ask to join the ambient context (i.e. the 'joinAmbient' parameter must be set to false).");
@@ -171,9 +183,9 @@ namespace Mehdime.Entity
 			{
 				DbContext correspondingParentContext = _parentScope._dbContexts.InitializedDbContexts.Values.SingleOrDefault(parentContext => parentContext.GetType() == contextInCurrentScope.GetType());
 #elif EF6
-			foreach (IObjectContextAdapter contextInCurrentScope in _dbContexts.InitializedDbContexts.Values)
+			foreach (IDbContext contextInCurrentScope in _dbContexts.InitializedDbContexts.Values)
 			{
-				IObjectContextAdapter correspondingParentContext = _parentScope._dbContexts.InitializedDbContexts.Values.SingleOrDefault(parentContext => parentContext.GetType() == contextInCurrentScope.GetType()) as IObjectContextAdapter;
+				IObjectContextAdapter correspondingParentContext = _parentScope._dbContexts.InitializedDbContexts.Values.SingleOrDefault(parentContext => parentContext.GetType() == contextInCurrentScope.GetType());
 #endif
 
 				if (correspondingParentContext == null)
@@ -253,9 +265,9 @@ namespace Mehdime.Entity
 			{
 				DbContext correspondingParentContext = _parentScope._dbContexts.InitializedDbContexts.Values.SingleOrDefault(parentContext => parentContext.GetType() == contextInCurrentScope.GetType());
 #elif EF6
-			foreach (IObjectContextAdapter contextInCurrentScope in _dbContexts.InitializedDbContexts.Values)
+			foreach (IDbContext contextInCurrentScope in _dbContexts.InitializedDbContexts.Values)
 			{
-				IObjectContextAdapter correspondingParentContext = _parentScope._dbContexts.InitializedDbContexts.Values.SingleOrDefault(parentContext => parentContext.GetType() == contextInCurrentScope.GetType()) as IObjectContextAdapter;
+				IObjectContextAdapter correspondingParentContext = _parentScope._dbContexts.InitializedDbContexts.Values.SingleOrDefault(parentContext => parentContext.GetType() == contextInCurrentScope.GetType());
 #endif
 
 				if (correspondingParentContext == null)
@@ -511,7 +523,7 @@ Stack Trace:
 		internal static void SetAmbientScope(DbContextScope newAmbientScope)
 		{
 			if (newAmbientScope == null)
-				throw new ArgumentNullException("newAmbientScope");
+				throw new ArgumentNullException(nameof(newAmbientScope));
 
 #if NET40
 			var current = CallContext.LogicalGetData(AmbientDbContextScopeKey) as InstanceIdentifier;

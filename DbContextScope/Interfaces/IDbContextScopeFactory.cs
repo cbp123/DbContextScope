@@ -11,7 +11,7 @@ using System.Data;
 namespace Mehdime.Entity
 {
     /// <summary>
-    /// Convenience methods to create a new ambient DbContextScope. This is the prefered method
+    /// Convenience methods to create a new ambient DbContextScope. This is the preferred method
     /// to create a DbContextScope.
     /// </summary>
     public interface IDbContextScopeFactory

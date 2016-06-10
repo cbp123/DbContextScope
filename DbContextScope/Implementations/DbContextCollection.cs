@@ -36,11 +36,11 @@ namespace Mehdime.Entity
     /// </summary>
     public class DbContextCollection : IDbContextCollection
     {
-        private readonly Dictionary<Type, DbContext> _initializedDbContexts;
+        private readonly Dictionary<Type, IDbContext> _initializedDbContexts;
 #if EFCore
-        private readonly Dictionary<DbContext, IDbContextTransaction> _transactions; 
+        private readonly Dictionary<IDbContext, IDbContextTransaction> _transactions; 
 #elif EF6
-        private readonly Dictionary<DbContext, DbContextTransaction> _transactions;
+        private readonly Dictionary<IDbContext, DbContextTransaction> _transactions;
 #endif
         private IsolationLevel? _isolationLevel;
         private readonly IDbContextFactory _dbContextFactory;
@@ -48,18 +48,18 @@ namespace Mehdime.Entity
         private bool _completed;
         private readonly bool _readOnly;
 
-        internal Dictionary<Type, DbContext> InitializedDbContexts => _initializedDbContexts;
+        internal Dictionary<Type, IDbContext> InitializedDbContexts => _initializedDbContexts;
 
         public DbContextCollection(bool readOnly = false, IsolationLevel? isolationLevel = null, IDbContextFactory dbContextFactory = null)
         {
             _disposed = false;
             _completed = false;
 
-            _initializedDbContexts = new Dictionary<Type, DbContext>();
+            _initializedDbContexts = new Dictionary<Type, IDbContext>();
 #if EFCore
-            _transactions = new Dictionary<DbContext, IDbContextTransaction>();
+            _transactions = new Dictionary<IDbContext, IDbContextTransaction>();
 #elif EF6
-            _transactions = new Dictionary<DbContext, DbContextTransaction>();
+            _transactions = new Dictionary<IDbContext, DbContextTransaction>();
 #endif
 
 
@@ -68,7 +68,7 @@ namespace Mehdime.Entity
             _dbContextFactory = dbContextFactory;
         }
 
-        public TDbContext Get<TDbContext>() where TDbContext : DbContext
+        public TDbContext Get<TDbContext>() where TDbContext : class, IDbContext
         {
             if (_disposed)
                 throw new ObjectDisposedException("DbContextCollection");
@@ -135,7 +135,7 @@ namespace Mehdime.Entity
 #endif
             int c = 0;
 
-            foreach (DbContext dbContext in _initializedDbContexts.Values)
+            foreach (IDbContext dbContext in _initializedDbContexts.Values)
             {
                 try
                 {
@@ -201,7 +201,7 @@ namespace Mehdime.Entity
 
             int c = 0;
 
-            foreach (DbContext dbContext in _initializedDbContexts.Values)
+            foreach (IDbContext dbContext in _initializedDbContexts.Values)
             {
                 try
                 {
@@ -249,7 +249,7 @@ namespace Mehdime.Entity
             Exception lastError = null;
 #endif
 
-            foreach (DbContext dbContext in _initializedDbContexts.Values)
+            foreach (IDbContext dbContext in _initializedDbContexts.Values)
             {
                 // There's no need to explicitly rollback changes in a DbContext as
                 // DbContext doesn't save any changes until its SaveChanges() method is called.
@@ -315,7 +315,7 @@ namespace Mehdime.Entity
                 }
             }
 
-            foreach (DbContext dbContext in _initializedDbContexts.Values)
+            foreach (IDbContext dbContext in _initializedDbContexts.Values)
             {
                 try
                 {
