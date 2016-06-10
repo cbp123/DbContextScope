@@ -42,12 +42,10 @@ namespace Mehdime.Entity
 
 		public IDbContextCollection DbContexts => _dbContexts;
 
-		public DbContextScope(IDbContextFactory dbContextFactory = null) :
-			this(joiningOption: DbContextScopeOption.JoinExisting, readOnly: false, isolationLevel: null, dbContextFactory: dbContextFactory)
+		public DbContextScope(IDbContextFactory dbContextFactory = null) : this(DbContextScopeOption.JoinExisting, false, null, dbContextFactory)
 		{}
 
-		public DbContextScope(bool readOnly, IDbContextFactory dbContextFactory = null)
-			: this(joiningOption: DbContextScopeOption.JoinExisting, readOnly: readOnly, isolationLevel: null, dbContextFactory: dbContextFactory)
+		public DbContextScope(bool readOnly, IDbContextFactory dbContextFactory = null) : this(DbContextScopeOption.JoinExisting, readOnly, null, dbContextFactory)
 		{}
 
 		public DbContextScope(DbContextScopeOption joiningOption, bool readOnly, IsolationLevel? isolationLevel, IDbContextFactory dbContextFactory = null)
@@ -98,8 +96,7 @@ namespace Mehdime.Entity
 
 			return c;
 		}
-#if NET40
-#else
+#if !NET40
 		public Task<int> SaveChangesAsync()
 		{
 			return SaveChangesAsync(CancellationToken.None);
@@ -131,8 +128,7 @@ namespace Mehdime.Entity
 			return _dbContexts.Commit();
 		}
 
-#if NET40
-#else
+#if !NET40
 		private Task<int> CommitInternalAsync(CancellationToken cancelToken)
 		{
 			return _dbContexts.CommitAsync(cancelToken);
@@ -144,7 +140,8 @@ namespace Mehdime.Entity
 			_dbContexts.Rollback();
 		}
 
-		public void RefreshEntitiesInParentScope(IEnumerable entities)
+#if !EFCore
+        public void RefreshEntitiesInParentScope(IEnumerable entities)
 		{
 			if (entities == null)
 				return;
@@ -237,8 +234,7 @@ namespace Mehdime.Entity
 			}
 		}
 
-#if NET40
-#else
+#if !NET40
 		public async Task RefreshEntitiesInParentScopeAsync(IEnumerable entities)
 		{
 			// See comments in the sync version of this method for an explanation of what we're doing here.
@@ -311,6 +307,7 @@ namespace Mehdime.Entity
 				}
 			}
 		}
+#endif
 #endif
         public void Dispose()
 		{

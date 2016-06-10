@@ -6,9 +6,10 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 using System;
+#if !EFCore
 using System.Collections;
-#if NET40
-#else
+#endif
+#if !NET40
 using System.Threading;
 using System.Threading.Tasks;
 #endif
@@ -50,8 +51,7 @@ namespace Mehdime.Entity
         /// </summary>
         int SaveChanges();
 
-#if NET40
-#else
+#if !NET40
         /// <summary>
         /// Saves the changes in all the DbContext instances that were created within this scope.
         /// This method can only be called once per scope.
@@ -64,12 +64,13 @@ namespace Mehdime.Entity
         /// </summary>
         Task<int> SaveChangesAsync(CancellationToken cancelToken);
 #endif
+#if !EFCore
         /// <summary>
         /// Reloads the provided persistent entities from the data store
         /// in the DbContext instances managed by the parent scope. 
         /// 
-		/// If there is no parent scope (i.e. if this DbContextScope
-		/// if the top-level scope), does nothing.
+        /// If there is no parent scope (i.e. if this DbContextScope
+        /// if the top-level scope), does nothing.
         /// 
         /// This is useful when you have forced the creation of a new
         /// DbContextScope and want to make sure that the parent scope
@@ -81,8 +82,7 @@ namespace Mehdime.Entity
         /// </summary>
         void RefreshEntitiesInParentScope(IEnumerable entities);
 
-#if NET40
-#else
+#if !NET40
         /// <summary>
         /// Reloads the provided persistent entities from the data store
         /// in the DbContext instances managed by the parent scope. 
@@ -99,6 +99,7 @@ namespace Mehdime.Entity
         /// with parsimony). 
         /// </summary>
         Task RefreshEntitiesInParentScopeAsync(IEnumerable entities);
+#endif
 #endif
         /// <summary>
         /// The DbContext instances that this DbContextScope manages. Don't call SaveChanges() on the DbContext themselves!

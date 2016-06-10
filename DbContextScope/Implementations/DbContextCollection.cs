@@ -8,8 +8,9 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-//TODO for 4.5+
-//using System.Runtime.ExceptionServices;
+#if !NET40
+using System.Runtime.ExceptionServices;
+#endif
 using System.Threading;
 using System.Threading.Tasks;
 #if EFCore
@@ -127,10 +128,11 @@ namespace Mehdime.Entity
             // contain uncommitted changes here. We should therefore never be in a situation where the below
             // would result in a partial commit. 
 
-            //TODO For 4.5+
-            //ExceptionDispatchInfo lastError = null;
+#if !NET40
+            ExceptionDispatchInfo lastError = null;
+#else
             Exception lastError = null;
-
+#endif
             int c = 0;
 
             foreach (DbContext dbContext in _initializedDbContexts.Values)
@@ -156,27 +158,29 @@ namespace Mehdime.Entity
                 }
                 catch (Exception e)
                 {
-                    //TODO For 4.5+
-                    //lastError = ExceptionDispatchInfo.Capture(e);
+#if !NET40
+                    lastError = ExceptionDispatchInfo.Capture(e);
+#else
                     lastError = e;
+#endif
                 }
             }
 
             _transactions.Clear();
             _completed = true;
 
+#if !NET40
+            lastError?.Throw(); // Re-throw while maintaining the exception's original stack track
+#else
             if (lastError != null)
             {
                 throw new Exception("Error occurred committing transaction.", lastError);
             }
-            //TODO For 4.5+
-            //lastError?.Throw(); // Re-throw while maintaining the exception's original stack track
-
+#endif
             return c;
         }
 
-#if NET40
-#else
+#if !NET40
         public Task<int> CommitAsync()
         {
             return CommitAsync(CancellationToken.None);
@@ -193,9 +197,7 @@ namespace Mehdime.Entity
 
             // See comments in the sync version of this method for more details.
 
-            //TODO For 4.5+
-            //ExceptionDispatchInfo lastError = null;
-            Exception lastError = null;
+            ExceptionDispatchInfo lastError = null;
 
             int c = 0;
 
@@ -222,21 +224,14 @@ namespace Mehdime.Entity
                 }
                 catch (Exception e)
                 {
-                    //TODO For 4.5+
-                    //lastError = ExceptionDispatchInfo.Capture(e);
-                    lastError = e;
+                    lastError = ExceptionDispatchInfo.Capture(e);
                 }
             }
 
             _transactions.Clear();
             _completed = true;
 
-            if (lastError != null)
-            {
-                throw new Exception("Error occurred committing transaction.", lastError);
-            }
-            //TODO For 4.5+
-            //lastError?.Throw(); // Re-throw while maintaining the exception's original stack track
+            lastError?.Throw(); // Re-throw while maintaining the exception's original stack track
 
             return c;
         }
@@ -248,9 +243,11 @@ namespace Mehdime.Entity
             if (_completed)
                 throw new InvalidOperationException("You can't call Commit() or Rollback() more than once on a DbContextCollection. All the changes in the DbContext instances managed by this collection have already been saved or rollback and all database transactions have been completed and closed. If you wish to make more data changes, create a new DbContextCollection and make your changes there.");
 
-            //TODO For 4.5+
-            //ExceptionDispatchInfo lastError = null;
+#if !NET40
+            ExceptionDispatchInfo lastError = null;
+#else
             Exception lastError = null;
+#endif
 
             foreach (DbContext dbContext in _initializedDbContexts.Values)
             {
@@ -274,9 +271,11 @@ namespace Mehdime.Entity
                     }
                     catch (Exception e)
                     {
-                        //TODO For 4.5+
-                        //lastError = ExceptionDispatchInfo.Capture(e);
+#if !NET40
+                        lastError = ExceptionDispatchInfo.Capture(e);
+#else
                         lastError = e;
+#endif
                     }
                 }
             }
@@ -284,12 +283,14 @@ namespace Mehdime.Entity
             _transactions.Clear();
             _completed = true;
 
+#if !NET40
+            lastError?.Throw(); // Re-throw while maintaining the exception's original stack track
+#else
             if (lastError != null)
             {
                 throw new Exception("Error occurred committing transaction.", lastError);
             }
-            //TODO For 4.5+
-            //lastError?.Throw(); // Re-throw while maintaining the exception's original stack track
+#endif      
         }
 
         public void Dispose()
