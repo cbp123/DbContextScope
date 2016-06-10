@@ -8,27 +8,39 @@
 using System;
 using System.Collections;
 using System.Data;
-using System.Data.Entity;
-using System.Data.Entity.Core.Objects;
-using System.Data.Entity.Infrastructure;
 using System.Linq;
 using System.Runtime.CompilerServices;
+#if NET40
 using System.Runtime.Remoting.Messaging;
+#else
 using System.Threading;
 using System.Threading.Tasks;
+#endif
+#if EFCore
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+#elif EF6
+using System.Data.Entity.Infrastructure;
+using System.Data.Entity.Core.Objects;
+using System.Data.Entity;
+#endif
+
 
 namespace Mehdime.Entity
 {
 	public class DbContextScope : IDbContextScope
 	{
 		private bool _disposed;
-		private bool _readOnly;
+		private readonly bool _readOnly;
 		private bool _completed;
-		private bool _nested;
-		private DbContextScope _parentScope;
-		private DbContextCollection _dbContexts;
+		private readonly bool _nested;
+		private readonly DbContextScope _parentScope;
+		private readonly DbContextCollection _dbContexts;
 
-		public IDbContextCollection DbContexts { get { return _dbContexts; } }
+		public IDbContextCollection DbContexts => _dbContexts;
 
 		public DbContextScope(IDbContextFactory dbContextFactory = null) :
 			this(joiningOption: DbContextScopeOption.JoinExisting, readOnly: false, isolationLevel: null, dbContextFactory: dbContextFactory)
@@ -50,7 +62,7 @@ namespace Mehdime.Entity
 			_parentScope = GetAmbientScope();
 			if (_parentScope != null && joiningOption == DbContextScopeOption.JoinExisting)
 			{
-				if (_parentScope._readOnly && !this._readOnly)
+				if (_parentScope._readOnly && !_readOnly)
 				{
 					throw new InvalidOperationException("Cannot nest a read/write DbContextScope within a read-only DbContextScope.");
 				}
@@ -76,7 +88,7 @@ namespace Mehdime.Entity
 
 			// Only save changes if we're not a nested scope. Otherwise, let the top-level scope 
 			// decide when the changes should be saved.
-			var c = 0;
+			int c = 0;
 			if (!_nested)
 			{
 				c = CommitInternal();
@@ -86,7 +98,8 @@ namespace Mehdime.Entity
 
 			return c;
 		}
-
+#if NET40
+#else
 		public Task<int> SaveChangesAsync()
 		{
 			return SaveChangesAsync(CancellationToken.None);
@@ -95,7 +108,7 @@ namespace Mehdime.Entity
 		public async Task<int> SaveChangesAsync(CancellationToken cancelToken)
 		{
 			if (cancelToken == null)
-				throw new ArgumentNullException("cancelToken");
+				throw new ArgumentNullException(nameof(cancelToken));
 			if (_disposed)
 				throw new ObjectDisposedException("DbContextScope");
 			if (_completed)
@@ -103,7 +116,7 @@ namespace Mehdime.Entity
 
 			// Only save changes if we're not a nested scope. Otherwise, let the top-level scope 
 			// decide when the changes should be saved.
-			var c = 0;
+			int c = 0;
 			if (!_nested)
 			{
 				c = await CommitInternalAsync(cancelToken).ConfigureAwait(false);
@@ -112,18 +125,21 @@ namespace Mehdime.Entity
 			_completed = true;
 			return c;
 		}
-
-		private int CommitInternal()
+#endif
+        private int CommitInternal()
 		{
 			return _dbContexts.Commit();
 		}
 
+#if NET40
+#else
 		private Task<int> CommitInternalAsync(CancellationToken cancelToken)
 		{
 			return _dbContexts.CommitAsync(cancelToken);
 		}
+#endif
 
-		private void RollbackInternal()
+        private void RollbackInternal()
 		{
 			_dbContexts.Rollback();
 		}
@@ -153,12 +169,15 @@ namespace Mehdime.Entity
 			// NOTE: DbContext implements the ObjectContext property of the IObjectContextAdapter interface explicitely.
 			// So we must cast the DbContext instances to IObjectContextAdapter in order to access their ObjectContext.
 			// This cast is completely safe.
-
+#if EFCore
+			foreach (DbContext contextInCurrentScope in _dbContexts.InitializedDbContexts.Values)
+			{
+				DbContext correspondingParentContext = _parentScope._dbContexts.InitializedDbContexts.Values.SingleOrDefault(parentContext => parentContext.GetType() == contextInCurrentScope.GetType());
+#elif EF6
 			foreach (IObjectContextAdapter contextInCurrentScope in _dbContexts.InitializedDbContexts.Values)
 			{
-				var correspondingParentContext =
-					_parentScope._dbContexts.InitializedDbContexts.Values.SingleOrDefault(parentContext => parentContext.GetType() == contextInCurrentScope.GetType())
-					as IObjectContextAdapter;
+				IObjectContextAdapter correspondingParentContext = _parentScope._dbContexts.InitializedDbContexts.Values.SingleOrDefault(parentContext => parentContext.GetType() == contextInCurrentScope.GetType()) as IObjectContextAdapter;
+#endif
 
 				if (correspondingParentContext == null)
 					continue; // No DbContext of this type has been created in the parent scope yet. So no need to refresh anything for this DbContext type.
@@ -166,11 +185,34 @@ namespace Mehdime.Entity
 				// Both our scope and the parent scope have an instance of the same DbContext type. 
 				// We can now look in the parent DbContext instance for entities that need to
 				// be refreshed.
-				foreach (var toRefresh in entities)
+				foreach (object toRefresh in entities)
 				{
+#if EFCore
 					// First, we need to find what the EntityKey for this entity is. 
 					// We need this EntityKey in order to check if this entity has
 					// already been loaded in the parent DbContext's first-level cache (the ObjectStateManager).
+					InternalEntityEntry stateInCurrentScope = contextInCurrentScope.ChangeTracker.GetInfrastructure().TryGetEntry(toRefresh);
+					if (stateInCurrentScope != null)
+					{
+						IKey primaryKey = stateInCurrentScope.EntityType.FindPrimaryKey();
+						//var key = stateInCurrentScope.EntityKey;
+						//Dictionary<IProperty, object> currentPrimaryKeyValue = primaryKey.Properties.ToDictionary(property => property, property => property.GetGetter().GetClrValue(stateInCurrentScope.Entity));
+
+						// Now we can see if that entity exists in the parent DbContext instance and refresh it.
+						InternalEntityEntry stateInParentScope = correspondingParentContext.ChangeTracker.GetInfrastructure().TryGetEntry(primaryKey);
+						if (stateInParentScope != null)
+						{
+							// Only refresh the entity in the parent DbContext from the database if that entity hasn't already been
+							// modified in the parent. Otherwise, let the whatever concurrency rules the application uses
+							// apply.
+							if (stateInParentScope.EntityState == EntityState.Unchanged)
+							{
+								//correspondingParentContext.ObjectContext.Refresh(RefreshMode.StoreWins, stateInParentScope.Entity);
+								throw new NotImplementedException("There is no way of refreshing entities between DbContexts in EF7-rc1.");
+							}
+						}
+					}
+#elif EF6
 					ObjectStateEntry stateInCurrentScope;
 					if (contextInCurrentScope.ObjectContext.ObjectStateManager.TryGetObjectStateEntry(toRefresh, out stateInCurrentScope))
 					{
@@ -189,10 +231,14 @@ namespace Mehdime.Entity
 							}
 						}
 					}
+#endif
+
 				}
 			}
 		}
 
+#if NET40
+#else
 		public async Task RefreshEntitiesInParentScopeAsync(IEnumerable entities)
 		{
 			// See comments in the sync version of this method for an explanation of what we're doing here.
@@ -206,17 +252,47 @@ namespace Mehdime.Entity
 			if (_nested) 
 				return;
 
+#if EFCore
+			foreach (DbContext contextInCurrentScope in _dbContexts.InitializedDbContexts.Values)
+			{
+				DbContext correspondingParentContext = _parentScope._dbContexts.InitializedDbContexts.Values.SingleOrDefault(parentContext => parentContext.GetType() == contextInCurrentScope.GetType());
+#elif EF6
 			foreach (IObjectContextAdapter contextInCurrentScope in _dbContexts.InitializedDbContexts.Values)
 			{
-				var correspondingParentContext =
-					_parentScope._dbContexts.InitializedDbContexts.Values.SingleOrDefault(parentContext => parentContext.GetType() == contextInCurrentScope.GetType())
-					as IObjectContextAdapter;
+				IObjectContextAdapter correspondingParentContext = _parentScope._dbContexts.InitializedDbContexts.Values.SingleOrDefault(parentContext => parentContext.GetType() == contextInCurrentScope.GetType()) as IObjectContextAdapter;
+#endif
 
 				if (correspondingParentContext == null)
 					continue; 
 
-				foreach (var toRefresh in entities)
+				foreach (object toRefresh in entities)
 				{
+#if EFCore
+					// First, we need to find what the EntityKey for this entity is. 
+					// We need this EntityKey in order to check if this entity has
+					// already been loaded in the parent DbContext's first-level cache (the ObjectStateManager).
+					InternalEntityEntry stateInCurrentScope = contextInCurrentScope.ChangeTracker.GetInfrastructure().TryGetEntry(toRefresh);
+					if (stateInCurrentScope != null)
+					{
+						IKey primaryKey = stateInCurrentScope.EntityType.FindPrimaryKey();
+						//var key = stateInCurrentScope.EntityKey;
+						//Dictionary<IProperty, object> currentPrimaryKeyValue = primaryKey.Properties.ToDictionary(property => property, property => property.GetGetter().GetClrValue(stateInCurrentScope.Entity));
+
+						// Now we can see if that entity exists in the parent DbContext instance and refresh it.
+						InternalEntityEntry stateInParentScope = correspondingParentContext.ChangeTracker.GetInfrastructure().TryGetEntry(primaryKey);
+						if (stateInParentScope != null)
+						{
+							// Only refresh the entity in the parent DbContext from the database if that entity hasn't already been
+							// modified in the parent. Otherwise, let the whatever concurrency rules the application uses
+							// apply.
+							if (stateInParentScope.EntityState == EntityState.Unchanged)
+							{
+								//correspondingParentContext.ObjectContext.Refresh(RefreshMode.StoreWins, stateInParentScope.Entity);
+							    throw new NotImplementedException("There is no way of refreshing entities between DbContexts in EF7.");
+							}
+						}
+					}
+#elif EF6
 					ObjectStateEntry stateInCurrentScope;
 					if (contextInCurrentScope.ObjectContext.ObjectStateManager.TryGetObjectStateEntry(toRefresh, out stateInCurrentScope))
 					{
@@ -231,11 +307,12 @@ namespace Mehdime.Entity
 							}
 						}
 					}
+#endif
 				}
 			}
 		}
-
-		public void Dispose()
+#endif
+        public void Dispose()
 		{
 			if (_disposed)
 				return;
@@ -273,7 +350,7 @@ namespace Mehdime.Entity
 			}
 
 			// Pop ourself from the ambient scope stack
-			var currentAmbientScope = GetAmbientScope();
+			DbContextScope currentAmbientScope = GetAmbientScope();
 			if (currentAmbientScope != this) // This is a serious programming error. Worth throwing here.
 				throw new InvalidOperationException("DbContextScope instances must be disposed of in the order in which they were created!");
 
@@ -318,7 +395,7 @@ namespace Mehdime.Entity
 					 * So just record a warning here. Hopefully someone will see it and will fix the code.
 					 */
 
-					var message = @"PROGRAMMING ERROR - When attempting to dispose a DbContextScope, we found that our parent DbContextScope has already been disposed! This means that someone started a parallel flow of execution (e.g. created a TPL task, created a thread or enqueued a work item on the ThreadPool) within the context of a DbContextScope without suppressing the ambient context first. 
+					string message = @"PROGRAMMING ERROR - When attempting to dispose a DbContextScope, we found that our parent DbContextScope has already been disposed! This means that someone started a parallel flow of execution (e.g. created a TPL task, created a thread or enqueued a work item on the ThreadPool) within the context of a DbContextScope without suppressing the ambient context first. 
 
 In order to fix this:
 1) Look at the stack trace below - this is the stack trace of the parallel task in question.
@@ -340,7 +417,7 @@ Stack Trace:
 
 		}
 
-		#region Ambient Context Logic
+#region Ambient Context Logic
 
 		/*
 		 * This is where all the magic happens. And there is not much of it.
@@ -410,7 +487,7 @@ Stack Trace:
 		 * 
 		 */
 
-		private static readonly string AmbientDbContextScopeKey = "AmbientDbcontext_" + Guid.NewGuid();
+		
 
 		// Use a ConditionalWeakTable instead of a simple ConcurrentDictionary to store our DbContextScope instances 
 		// in order to prevent leaking DbContextScope instances if someone doesn't dispose them properly.
@@ -422,10 +499,14 @@ Stack Trace:
 		// The doc for ConditionalWeakTable isn't the best. This SO anser does a good job at explaining what 
 		// it does: http://stackoverflow.com/a/18613811
 		private static readonly ConditionalWeakTable<InstanceIdentifier, DbContextScope> DbContextScopeInstances = new ConditionalWeakTable<InstanceIdentifier, DbContextScope>();
+#if NET40
+        private static readonly string AmbientDbContextScopeKey = "AmbientDbcontext_" + Guid.NewGuid();
+#else
+        private static readonly AsyncLocal<InstanceIdentifier> _scopeInstanceIdentifier = new AsyncLocal<InstanceIdentifier>();
+#endif
 
-		private static readonly AsyncLocal<InstanceIdentifier> _scopeInstanceIdentifier = new AsyncLocal<InstanceIdentifier>();
 
-		private readonly InstanceIdentifier _instanceIdentifier = new InstanceIdentifier();
+        private readonly InstanceIdentifier _instanceIdentifier = new InstanceIdentifier();
 
 		/// <summary>
 		/// Makes the provided 'dbContextScope' available as the the ambient scope via the CallContext.
@@ -435,14 +516,18 @@ Stack Trace:
 			if (newAmbientScope == null)
 				throw new ArgumentNullException("newAmbientScope");
 
-			//var current = CallContext.LogicalGetData(AmbientDbContextScopeKey) as InstanceIdentifier;
-
+#if NET40
+			var current = CallContext.LogicalGetData(AmbientDbContextScopeKey) as InstanceIdentifier;
+			if (current == newAmbientScope._instanceIdentifier)
+				return;
+			// Store the new scope's instance identifier in the CallContext, making it the ambient scope
+			CallContext.LogicalSetData(AmbientDbContextScopeKey, newAmbientScope._instanceIdentifier);
+#else
 			if (_scopeInstanceIdentifier.Value == newAmbientScope._instanceIdentifier)
 				return;
-
 			// Store the new scope's instance identifier in the CallContext, making it the ambient scope
 			_scopeInstanceIdentifier.Value = newAmbientScope._instanceIdentifier;
-			//CallContext.LogicalSetData(AmbientDbContextScopeKey, newAmbientScope._instanceIdentifier);
+#endif
 
 			// Keep track of this instance (or do nothing if we're already tracking it)
 			DbContextScopeInstances.GetValue(newAmbientScope._instanceIdentifier, key => newAmbientScope);
@@ -454,11 +539,13 @@ Stack Trace:
 		/// </summary>
 		internal static void RemoveAmbientScope()
 		{
-			//var current = CallContext.LogicalGetData(AmbientDbContextScopeKey) as InstanceIdentifier;
-			//CallContext.LogicalSetData(AmbientDbContextScopeKey, null);
-			var current = _scopeInstanceIdentifier.Value;
+#if NET40
+			var current = CallContext.LogicalGetData(AmbientDbContextScopeKey) as InstanceIdentifier;
+			CallContext.LogicalSetData(AmbientDbContextScopeKey, null);
+#else
+			InstanceIdentifier current = _scopeInstanceIdentifier.Value;
 			_scopeInstanceIdentifier.Value = null;
-
+#endif
 			// If there was an ambient scope, we can stop tracking it now
 			if (current != null)
 			{
@@ -472,18 +559,26 @@ Stack Trace:
 		/// </summary>
 		internal static void HideAmbientScope()
 		{
-			_scopeInstanceIdentifier.Value = null;
-			//CallContext.LogicalSetData(AmbientDbContextScopeKey, null);
-		}
+#if NET40
+            CallContext.LogicalSetData(AmbientDbContextScopeKey, null);
+#else
+            _scopeInstanceIdentifier.Value = null;
+#endif
+        }
 
-		/// <summary>
-		/// Get the current ambient scope or null if no ambient scope has been setup.
-		/// </summary>
-		internal static DbContextScope GetAmbientScope()
+        /// <summary>
+        /// Get the current ambient scope or null if no ambient scope has been setup.
+        /// </summary>
+        internal static DbContextScope GetAmbientScope()
 		{
-			// Retrieve the identifier of the ambient scope (if any)
-			var instanceIdentifier = _scopeInstanceIdentifier.Value; //CallContext.LogicalGetData(AmbientDbContextScopeKey) as InstanceIdentifier;
-			if (instanceIdentifier == null)
+            // Retrieve the identifier of the ambient scope (if any)
+#if NET40
+            InstanceIdentifier instanceIdentifier = CallContext.LogicalGetData(AmbientDbContextScopeKey) as InstanceIdentifier;
+#else
+            InstanceIdentifier instanceIdentifier = _scopeInstanceIdentifier.Value;
+#endif
+
+            if (instanceIdentifier == null)
 				return null; // Either no ambient context has been set or we've crossed an app domain boundary and have (intentionally) lost the ambient context
 
 			// Retrieve the DbContextScope instance corresponding to this identifier
@@ -508,7 +603,7 @@ Stack Trace:
 			return null;
 		}
 
-		#endregion
+#endregion
 	}
 
 	/*
@@ -520,8 +615,34 @@ Stack Trace:
 	 * an empty class is cheaper and uses up less memory than generating
 	 * a unique string.
 	*/
+#if EFCore
+		//TODO this can probably be optimised
+	internal class InstanceIdentifier
+    {
+		private readonly string _id = Guid.NewGuid().ToString();
+
+		protected bool Equals(InstanceIdentifier other)
+		{
+			return string.Equals(_id, other._id);
+		}
+
+		public override bool Equals(object obj)
+		{
+			if (ReferenceEquals(null, obj)) return false;
+			if (ReferenceEquals(this, obj)) return true;
+			if (obj.GetType() != this.GetType()) return false;
+			return Equals((InstanceIdentifier) obj);
+		}
+
+		public override int GetHashCode()
+		{
+			return _id?.GetHashCode() ?? 0;
+		}
+	}
+#elif EF6
 	internal class InstanceIdentifier : MarshalByRefObject
 	{ }
+#endif
 }
 
 	
