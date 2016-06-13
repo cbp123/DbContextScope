@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Data.Entity.Core.Objects;
 #if EFCore
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Infrastructure;
