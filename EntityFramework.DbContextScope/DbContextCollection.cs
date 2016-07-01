@@ -5,22 +5,27 @@
  * This software may be modified and distributed under the terms
  * of the MIT license.  See the LICENSE file for details.
  */
-using System;
-using System.Collections.Generic;
-using System.Data;
+
 #if !NET40
 using System.Runtime.ExceptionServices;
 #endif
+using System;
+using System.Collections.Generic;
+using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
+#if EF6
+using System.Data.Entity;
+#endif
+using EntityFramework.DbContextScope.Interfaces;
 #if EFCore
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 #elif EF6
-using System.Data.Entity;
+
 #endif
 
-namespace Mehdime.Entity
+namespace EntityFramework.DbContextScope
 {
     /// <summary>
     /// As its name suggests, DbContextCollection maintains a collection of DbContext instances.

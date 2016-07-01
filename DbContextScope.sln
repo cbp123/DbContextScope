@@ -16,6 +16,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mehdime.Entity", "Mehdime.E
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "DbContextScope", "DbContextScope\DbContextScope.xproj", "{78CE6F5C-4DDB-42EF-9C05-7E9303BCF34C}"
 EndProject
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "DbContextScopeDemoApplication", "DbContextScopeDemoApplication\DbContextScopeDemoApplication.xproj", "{78739305-E8F2-4435-94D9-3036118441EA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -34,6 +36,10 @@ Global
 		{78CE6F5C-4DDB-42EF-9C05-7E9303BCF34C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{78CE6F5C-4DDB-42EF-9C05-7E9303BCF34C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{78CE6F5C-4DDB-42EF-9C05-7E9303BCF34C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{78739305-E8F2-4435-94D9-3036118441EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{78739305-E8F2-4435-94D9-3036118441EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{78739305-E8F2-4435-94D9-3036118441EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{78739305-E8F2-4435-94D9-3036118441EA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

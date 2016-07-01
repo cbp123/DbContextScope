@@ -10,6 +10,7 @@ using System.Collections;
 using System.Data;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using EntityFramework.DbContextScope.Interfaces;
 #if NET40
 using System.Runtime.Remoting.Messaging;
 #else
@@ -29,7 +30,7 @@ using System.Data.Entity;
 #endif
 
 
-namespace Mehdime.Entity
+namespace EntityFramework.DbContextScope
 {
 	public class DbContextScope : IDbContextScope
 	{
@@ -508,7 +509,7 @@ Stack Trace:
 		// The doc for ConditionalWeakTable isn't the best. This SO anser does a good job at explaining what 
 		// it does: http://stackoverflow.com/a/18613811
 		private static readonly ConditionalWeakTable<InstanceIdentifier, DbContextScope> DbContextScopeInstances = new ConditionalWeakTable<InstanceIdentifier, DbContextScope>();
-#if NET40
+#if (NET40 || NETSTANDARD1_0)
         private static readonly string AmbientDbContextScopeKey = "AmbientDbcontext_" + Guid.NewGuid();
 #else
         private static readonly AsyncLocal<InstanceIdentifier> _scopeInstanceIdentifier = new AsyncLocal<InstanceIdentifier>();
@@ -525,14 +526,14 @@ Stack Trace:
 			if (newAmbientScope == null)
 				throw new ArgumentNullException(nameof(newAmbientScope));
 
-#if NET40
+#if (NET40 || NETSTANDARD1_0)
 			var current = CallContext.LogicalGetData(AmbientDbContextScopeKey) as InstanceIdentifier;
 			if (current == newAmbientScope._instanceIdentifier)
 				return;
 			// Store the new scope's instance identifier in the CallContext, making it the ambient scope
 			CallContext.LogicalSetData(AmbientDbContextScopeKey, newAmbientScope._instanceIdentifier);
 #else
-			if (_scopeInstanceIdentifier.Value == newAmbientScope._instanceIdentifier)
+            if (_scopeInstanceIdentifier.Value == newAmbientScope._instanceIdentifier)
 				return;
 			// Store the new scope's instance identifier in the CallContext, making it the ambient scope
 			_scopeInstanceIdentifier.Value = newAmbientScope._instanceIdentifier;
@@ -548,11 +549,11 @@ Stack Trace:
 		/// </summary>
 		internal static void RemoveAmbientScope()
 		{
-#if NET40
+#if (NET40 || NETSTANDARD1_0)
 			var current = CallContext.LogicalGetData(AmbientDbContextScopeKey) as InstanceIdentifier;
 			CallContext.LogicalSetData(AmbientDbContextScopeKey, null);
 #else
-			InstanceIdentifier current = _scopeInstanceIdentifier.Value;
+            InstanceIdentifier current = _scopeInstanceIdentifier.Value;
 			_scopeInstanceIdentifier.Value = null;
 #endif
 			// If there was an ambient scope, we can stop tracking it now
@@ -568,7 +569,7 @@ Stack Trace:
 		/// </summary>
 		internal static void HideAmbientScope()
 		{
-#if NET40
+#if (NET40 || NETSTANDARD1_0)
             CallContext.LogicalSetData(AmbientDbContextScopeKey, null);
 #else
             _scopeInstanceIdentifier.Value = null;
@@ -580,8 +581,8 @@ Stack Trace:
         /// </summary>
         internal static DbContextScope GetAmbientScope()
 		{
-            // Retrieve the identifier of the ambient scope (if any)
-#if NET40
+    // Retrieve the identifier of the ambient scope (if any)
+#if (NET40 || NETSTANDARD1_0)
             InstanceIdentifier instanceIdentifier = CallContext.LogicalGetData(AmbientDbContextScopeKey) as InstanceIdentifier;
 #else
             InstanceIdentifier instanceIdentifier = _scopeInstanceIdentifier.Value;

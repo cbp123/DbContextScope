@@ -6,7 +6,7 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-namespace Mehdime.Entity
+namespace EntityFramework.DbContextScope.Interfaces
 {
     /// <summary>
     /// Convenience methods to retrieve ambient DbContext instances. 

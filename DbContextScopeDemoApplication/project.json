@@ -1,0 +1,45 @@
+{
+  "version": "1.0.0-*",
+  "buildOptions": {
+    "emitEntryPoint": true
+  },
+
+  "dependencies": {
+    "DbContextScope": "1.0.0-*"
+    
+  },
+
+  "frameworks": {
+    "netcoreapp1.0": {
+      "imports": [
+        "dnxcore50"
+      ],
+      "dependencies": {
+        "Microsoft.NETCore.App": {
+          "type": "platform",
+          "version": "1.0.0"
+        },
+        "Microsoft.EntityFrameworkCore.SqlServer": "1.0.0"
+      },
+      "buildOptions": {
+        "define": [
+          "EFCore"
+        ]
+      }
+    },
+    "net46": {
+      "buildOptions": {
+        "define": [
+          "EF6"
+        ]
+      }
+    },
+    "net40": {
+      "buildOptions": {
+        "define": [
+          "EF6"
+        ]
+      }
+    }
+  }
+}

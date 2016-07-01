@@ -6,13 +6,13 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-namespace Mehdime.Entity
+namespace EntityFramework.DbContextScope.Interfaces
 {
-    /// <summary>
-    /// Factory for DbContext-derived classes that don't expose 
-    /// a default constructor.
-    /// </summary>
-    /// <remarks>
+	/// <summary>
+	/// Factory for DbContext-derived classes that don't expose 
+	/// a default constructor.
+	/// </summary>
+	/// <remarks>
 	/// If your DbContext-derived classes have a default constructor, 
 	/// you can ignore this factory. DbContextScope will take care of
 	/// instanciating your DbContext class with Activator.CreateInstance() 
@@ -29,9 +29,9 @@ namespace Mehdime.Entity
 	/// have a mandatory dependency on an IDataDecryptor component that knows how to do that. 
 	/// In that case, you'll want to implement this interface and pass it to the DbContextScope
 	/// you're creating so that DbContextScope is able to create your DbContext instances correctly. 
-    /// </remarks>
-    public interface IDbContextFactory
-    {
+	/// </remarks>
+	public interface IDbContextFactory
+	{
 		TDbContext CreateDbContext<TDbContext>() where TDbContext : class, IDbContext;
-    }
+	}
 }

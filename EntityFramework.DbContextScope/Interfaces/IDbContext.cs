@@ -1,15 +1,17 @@
 ﻿using System;
-#if EFCore
-using Microsoft.EntityFrameworkCore.ChangeTracking;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-#elif EF6
+#if EF6
 using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
 #endif
 using System.Threading;
 using System.Threading.Tasks;
+#if EFCore
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+#elif EF6
+#endif
 
-namespace Mehdime.Entity
+namespace EntityFramework.DbContextScope.Interfaces
 {
 #if EFCore
     public interface IDbContext : IDisposable
@@ -26,7 +28,8 @@ namespace Mehdime.Entity
 #endif
 
         int SaveChanges();
-
+#if !NET40
         Task<int> SaveChangesAsync(CancellationToken cancelToken);
+#endif
     }
 }

@@ -5,9 +5,11 @@
  * This software may be modified and distributed under the terms
  * of the MIT license.  See the LICENSE file for details.
  */
-using System.Data;
 
-namespace Mehdime.Entity
+using System.Data;
+using EntityFramework.DbContextScope.Interfaces;
+
+namespace EntityFramework.DbContextScope
 {
     public class DbContextReadOnlyScope : IDbContextReadOnlyScope
     {

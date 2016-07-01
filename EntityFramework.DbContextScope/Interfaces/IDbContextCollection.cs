@@ -8,7 +8,7 @@
 
 using System;
 
-namespace Mehdime.Entity
+namespace EntityFramework.DbContextScope.Interfaces
 {
 	/// <summary>
 	/// Maintains a list of lazily-created DbContext instances.
