@@ -1,5 +1,5 @@
 ﻿using System;
-#if EF6
+#if EF6 || EFCLASSIC
 using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
 #endif
